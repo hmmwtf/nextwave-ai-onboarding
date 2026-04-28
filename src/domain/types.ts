@@ -14,6 +14,24 @@ export type ClassificationSource =
   | 'history_fallback'
   | 'default_fallback';
 
+export type FeatureKey = 'team_invite' | 'notification_rule' | 'note_share';
+
+export interface FeatureFlags {
+  team_invite: number;
+  notification_rule: number;
+  note_share: number;
+}
+
+export interface Recommendation {
+  guideId: string;
+  userType: UserType;
+  featureKey: FeatureKey;
+  title: string;
+  description: string;
+  cta: string;
+  reason: string;
+}
+
 export interface Content {
   id: string;
   type: ContentType;

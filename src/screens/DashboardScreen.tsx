@@ -5,14 +5,32 @@ import { ProjectDriveMock } from '../components/dashboard/ProjectDriveMock';
 import { StatsPanel } from '../components/dashboard/StatsPanel';
 import { RecommendationCard } from '../components/guide/RecommendationCard';
 import { resolveUserType } from '../domain/classification/resolveUserType';
-import type { Classification, Content, UserType } from '../domain/types';
+import { selectRecommendation } from '../domain/recommendation/selectRecommendation';
+import type {
+  Classification,
+  Content,
+  FeatureFlags,
+  Recommendation,
+  UserType,
+} from '../domain/types';
 import { classifyContent } from '../services/classifiers/classifyContent';
+
+const initialUsedFeatures: FeatureFlags = {
+  team_invite: 0,
+  notification_rule: 0,
+  note_share: 0,
+};
 
 export function DashboardScreen() {
   const [contents, setContents] = useState<Content[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [activeClassification, setActiveClassification] =
     useState<Classification | null>(null);
+  const [activeRecommendation, setActiveRecommendation] =
+    useState<Recommendation | null>(null);
+  const [usedFeatures] = useState<FeatureFlags>(initialUsedFeatures);
+  const [dismissedGuides] = useState<string[]>([]);
+  const [sessionDismissedGuides] = useState<string[]>([]);
   const [user, setUser] = useState<{ userType: UserType | null }>({
     userType: null,
   });
@@ -47,6 +65,14 @@ export function DashboardScreen() {
     };
 
     setUser({ userType: resolved.userType });
+    setActiveRecommendation(
+      selectRecommendation({
+        userType: resolved.userType,
+        usedFeatures,
+        dismissedGuides,
+        sessionDismissedGuides,
+      }),
+    );
     setClassifications((currentClassifications) => [
       classification,
       ...currentClassifications,
@@ -80,6 +106,7 @@ export function DashboardScreen() {
       <section className="dashboard-grid" aria-label="MVP dashboard sections">
         <RecommendationCard
           classification={activeClassification}
+          recommendation={activeRecommendation}
           userType={user.userType}
         />
         <StatsPanel />

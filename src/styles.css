@@ -195,6 +195,34 @@ textarea {
   font-weight: 700;
 }
 
+.recommendation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 16px;
+}
+
+.recommendation-panel {
+  padding: 16px;
+  border: 1px solid #b8d5f6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.recommendation-panel h3 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.recommendation-panel p {
+  margin-bottom: 12px;
+}
+
+.recommendation-reason {
+  color: #255586;
+  font-weight: 700;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -344,6 +372,10 @@ textarea {
   .card-wide,
   .card-highlight {
     grid-column: span 1;
+  }
+
+  .recommendation-layout {
+    grid-template-columns: 1fr;
   }
 
   .content-list li div,
