@@ -1,7 +1,7 @@
-import type { FeatureFlags, Recommendation, UserType } from '../types';
+import type { FeatureFlags, FeatureKey, Recommendation, UserType } from '../types';
 import { featureFallbackGuides, guideCatalog } from './guideCatalog';
 
-const featurePriority: Array<keyof FeatureFlags> = [
+const featurePriority: FeatureKey[] = [
   'team_invite',
   'notification_rule',
   'note_share',
@@ -11,17 +11,20 @@ interface SelectRecommendationParams {
   userType: UserType;
   usedFeatures: FeatureFlags;
   dismissedGuides: string[];
+  dismissedFeatures: FeatureKey[];
   sessionDismissedGuides: string[];
+  sessionDismissedFeatures: FeatureKey[];
 }
 
 function isDismissed(
   recommendation: Recommendation,
-  dismissedGuides: string[],
-  sessionDismissedGuides: string[],
+  params: SelectRecommendationParams,
 ) {
   return (
-    dismissedGuides.includes(recommendation.guideId) ||
-    sessionDismissedGuides.includes(recommendation.guideId)
+    params.dismissedGuides.includes(recommendation.guideId) ||
+    params.sessionDismissedGuides.includes(recommendation.guideId) ||
+    params.dismissedFeatures.includes(recommendation.featureKey) ||
+    params.sessionDismissedFeatures.includes(recommendation.featureKey)
   );
 }
 
@@ -31,11 +34,7 @@ function canShowRecommendation(
 ) {
   return (
     params.usedFeatures[recommendation.featureKey] === 0 &&
-    !isDismissed(
-      recommendation,
-      params.dismissedGuides,
-      params.sessionDismissedGuides,
-    )
+    !isDismissed(recommendation, params)
   );
 }
 

@@ -57,7 +57,7 @@ export interface ProjectDriveItem {
 
 export interface GuideImpression {
   guideId: string;
-  outcome: 'accepted';
+  outcome: 'accepted' | 'dismissed' | 'hidden';
   createdAt: number;
 }
 

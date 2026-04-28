@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ContentCreateModal } from '../components/content/ContentCreateModal';
 import { ContentList } from '../components/content/ContentList';
 import { ProjectDriveMock } from '../components/dashboard/ProjectDriveMock';
@@ -11,6 +11,7 @@ import type {
   CompletedActivity,
   Content,
   DashboardMetrics,
+  FeatureKey,
   FeatureFlags,
   GuideImpression,
   ProjectDriveItem,
@@ -18,6 +19,12 @@ import type {
   UserType,
 } from '../domain/types';
 import { classifyContent } from '../services/classifiers/classifyContent';
+import {
+  clearAppState,
+  loadAppState,
+  saveAppState,
+  type PersistedAppState,
+} from '../services/storage';
 
 const initialUsedFeatures: FeatureFlags = {
   team_invite: 0,
@@ -38,27 +45,121 @@ function clampPercent(value: number) {
   return Math.min(value, 100);
 }
 
+function createInitialAppState(): PersistedAppState {
+  return {
+    user: {
+      userType: null,
+    },
+    contents: [],
+    classifications: [],
+    activeClassification: null,
+    activeRecommendation: null,
+    guideImpressions: [],
+    usedFeatures: initialUsedFeatures,
+    metrics: initialMetrics,
+    activities: [],
+    projectDriveItems: [],
+  };
+}
+
+function getInitialAppState() {
+  return loadAppState() ?? createInitialAppState();
+}
+
 export function DashboardScreen() {
-  const [contents, setContents] = useState<Content[]>([]);
-  const [activities, setActivities] = useState<CompletedActivity[]>([]);
-  const [projectDriveItems, setProjectDriveItems] = useState<ProjectDriveItem[]>([]);
-  const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
-  const [classifications, setClassifications] = useState<Classification[]>([]);
+  const [initialAppState] = useState<PersistedAppState>(getInitialAppState);
+  const shouldSkipNextSave = useRef(false);
+  const [contents, setContents] = useState<Content[]>(initialAppState.contents);
+  const [activities, setActivities] = useState<CompletedActivity[]>(
+    initialAppState.activities,
+  );
+  const [projectDriveItems, setProjectDriveItems] = useState<ProjectDriveItem[]>(
+    initialAppState.projectDriveItems,
+  );
+  const [metrics, setMetrics] = useState<DashboardMetrics>(
+    initialAppState.metrics,
+  );
+  const [classifications, setClassifications] = useState<Classification[]>(
+    initialAppState.classifications,
+  );
   const [activeClassification, setActiveClassification] =
-    useState<Classification | null>(null);
+    useState<Classification | null>(initialAppState.activeClassification);
   const [activeRecommendation, setActiveRecommendation] =
-    useState<Recommendation | null>(null);
+    useState<Recommendation | null>(initialAppState.activeRecommendation);
   const [usedFeatures, setUsedFeatures] =
-    useState<FeatureFlags>(initialUsedFeatures);
-  const [dismissedGuides] = useState<string[]>([]);
-  const [sessionDismissedGuides] = useState<string[]>([]);
-  const [, setGuideImpressions] = useState<GuideImpression[]>([]);
+    useState<FeatureFlags>(initialAppState.usedFeatures);
+  const [dismissedGuides, setDismissedGuides] = useState<string[]>([]);
+  const [dismissedFeatures, setDismissedFeatures] = useState<FeatureKey[]>([]);
+  const [sessionDismissedGuides, setSessionDismissedGuides] = useState<string[]>(
+    [],
+  );
+  const [sessionDismissedFeatures, setSessionDismissedFeatures] = useState<
+    FeatureKey[]
+  >([]);
+  const [guideImpressions, setGuideImpressions] = useState<GuideImpression[]>(
+    initialAppState.guideImpressions,
+  );
   const [acceptedMessage, setAcceptedMessage] = useState('');
-  const [user, setUser] = useState<{ userType: UserType | null }>({
-    userType: null,
-  });
+  const [user, setUser] = useState<{ userType: UserType | null }>(
+    initialAppState.user,
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    if (shouldSkipNextSave.current) {
+      shouldSkipNextSave.current = false;
+      return;
+    }
+
+    saveAppState({
+      user,
+      contents,
+      classifications,
+      activeClassification,
+      activeRecommendation,
+      guideImpressions,
+      usedFeatures,
+      metrics,
+      activities,
+      projectDriveItems,
+    });
+  }, [
+    user,
+    contents,
+    classifications,
+    activeClassification,
+    activeRecommendation,
+    guideImpressions,
+    usedFeatures,
+    metrics,
+    activities,
+    projectDriveItems,
+  ]);
+
+  const handleResetDemo = () => {
+    const nextState = createInitialAppState();
+
+    shouldSkipNextSave.current = true;
+    clearAppState();
+    setUser(nextState.user);
+    setContents(nextState.contents);
+    setClassifications(nextState.classifications);
+    setActiveClassification(nextState.activeClassification);
+    setActiveRecommendation(nextState.activeRecommendation);
+    setGuideImpressions(nextState.guideImpressions);
+    setUsedFeatures(nextState.usedFeatures);
+    setMetrics(nextState.metrics);
+    setActivities(nextState.activities);
+    setProjectDriveItems(nextState.projectDriveItems);
+    setDismissedGuides([]);
+    setDismissedFeatures([]);
+    setSessionDismissedGuides([]);
+    setSessionDismissedFeatures([]);
+    setAcceptedMessage('');
+    setIsAnalyzing(false);
+    setIsCreateModalOpen(false);
+  };
 
   const handleCreateContent = async (content: Content) => {
     setContents((currentContents) => [content, ...currentContents]);
@@ -94,7 +195,9 @@ export function DashboardScreen() {
         userType: resolved.userType,
         usedFeatures,
         dismissedGuides,
+        dismissedFeatures,
         sessionDismissedGuides,
+        sessionDismissedFeatures,
       }),
     );
     setClassifications((currentClassifications) => [
@@ -190,6 +293,57 @@ export function DashboardScreen() {
     setAcceptedMessage(`${recommendation.cta} 완료`);
   };
 
+  const handleDismissLater = (recommendation: Recommendation) => {
+    const nextSessionDismissedGuides = [
+      ...sessionDismissedGuides,
+      recommendation.guideId,
+    ];
+    const nextSessionDismissedFeatures = [
+      ...sessionDismissedFeatures,
+      recommendation.featureKey,
+    ];
+
+    setSessionDismissedGuides(nextSessionDismissedGuides);
+    setSessionDismissedFeatures(nextSessionDismissedFeatures);
+    setActiveRecommendation(
+      user.userType
+        ? selectRecommendation({
+            userType: user.userType,
+            usedFeatures,
+            dismissedGuides,
+            dismissedFeatures,
+            sessionDismissedGuides: nextSessionDismissedGuides,
+            sessionDismissedFeatures: nextSessionDismissedFeatures,
+          })
+        : null,
+    );
+    setAcceptedMessage('');
+  };
+
+  const handleNeverShowAgain = (recommendation: Recommendation) => {
+    const nextDismissedGuides = [...dismissedGuides, recommendation.guideId];
+    const nextDismissedFeatures = [
+      ...dismissedFeatures,
+      recommendation.featureKey,
+    ];
+
+    setDismissedGuides(nextDismissedGuides);
+    setDismissedFeatures(nextDismissedFeatures);
+    setActiveRecommendation(
+      user.userType
+        ? selectRecommendation({
+            userType: user.userType,
+            usedFeatures,
+            dismissedGuides: nextDismissedGuides,
+            dismissedFeatures: nextDismissedFeatures,
+            sessionDismissedGuides,
+            sessionDismissedFeatures,
+          })
+        : null,
+    );
+    setAcceptedMessage('');
+  };
+
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
@@ -204,6 +358,9 @@ export function DashboardScreen() {
         >
           새로 만들기
         </button>
+        <button className="secondary-button" type="button" onClick={handleResetDemo}>
+          데모 초기화
+        </button>
       </header>
 
       {isAnalyzing ? (
@@ -217,6 +374,8 @@ export function DashboardScreen() {
           acceptedMessage={acceptedMessage}
           classification={activeClassification}
           onAcceptRecommendation={handleAcceptRecommendation}
+          onDismissLater={handleDismissLater}
+          onNeverShowAgain={handleNeverShowAgain}
           recommendation={activeRecommendation}
           userType={user.userType}
         />

@@ -4,6 +4,8 @@ interface RecommendationCardProps {
   acceptedMessage: string;
   classification: Classification | null;
   onAcceptRecommendation: (recommendation: Recommendation) => void;
+  onDismissLater: (recommendation: Recommendation) => void;
+  onNeverShowAgain: (recommendation: Recommendation) => void;
   recommendation: Recommendation | null;
   userType: UserType | null;
 }
@@ -12,6 +14,8 @@ export function RecommendationCard({
   acceptedMessage,
   classification,
   onAcceptRecommendation,
+  onDismissLater,
+  onNeverShowAgain,
   recommendation,
   userType,
 }: RecommendationCardProps) {
@@ -70,9 +74,25 @@ export function RecommendationCard({
             <h3>{recommendation.title}</h3>
             <p>{recommendation.description}</p>
             <p className="recommendation-reason">{recommendation.reason}</p>
-            <button className="primary-button" type="button" onClick={handleCtaClick}>
-              {recommendation.cta}
-            </button>
+            <div className="guide-actions">
+              <button className="primary-button" type="button" onClick={handleCtaClick}>
+                {recommendation.cta}
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => onDismissLater(recommendation)}
+              >
+                나중에 하기
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => onNeverShowAgain(recommendation)}
+              >
+                다시 보지 않기
+              </button>
+            </div>
           </div>
         </div>
       ) : classification ? (

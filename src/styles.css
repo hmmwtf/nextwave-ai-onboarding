@@ -230,6 +230,22 @@ textarea {
   font-weight: 700;
 }
 
+.guide-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.text-button {
+  border: 0;
+  padding: 8px 0;
+  color: #546179;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .accepted-panel {
   padding: 16px;
   border: 1px solid #b7e4c7;
