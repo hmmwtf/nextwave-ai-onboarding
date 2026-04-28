@@ -3,57 +3,57 @@ import type {
   CompletedActivity,
   Content,
   DashboardMetrics,
+  FeatureKey,
   FeatureFlags,
-  GuideImpression,
   ProjectDriveItem,
-  Recommendation,
-  UserType,
 } from '../domain/types';
 
 const STORAGE_KEY = 'nextwave-ai-onboarding-state';
 
-export interface PersistedAppState {
-  user: {
-    userType: UserType | null;
-  };
+export interface PersistedState {
   contents: Content[];
   classifications: Classification[];
-  activeClassification: Classification | null;
-  activeRecommendation: Recommendation | null;
-  guideImpressions: GuideImpression[];
   usedFeatures: FeatureFlags;
-  metrics: DashboardMetrics;
-  activities: CompletedActivity[];
-  projectDriveItems: ProjectDriveItem[];
+  dismissedGuides: string[];
+  sessionDismissedGuides: string[];
+  dismissedFeatures: FeatureKey[];
+  sessionDismissedFeatures: FeatureKey[];
+  dashboard: {
+    metrics: DashboardMetrics;
+    completedWorks: CompletedActivity[];
+    projectDriveItems: ProjectDriveItem[];
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isValidPersistedAppState(value: unknown): value is PersistedAppState {
+function isValidState(value: unknown): value is PersistedState {
   if (!isRecord(value)) {
     return false;
   }
 
-  if (!isRecord(value.user) || !isRecord(value.usedFeatures)) {
+  if (!isRecord(value.usedFeatures) || !isRecord(value.dashboard)) {
     return false;
   }
 
-  if (!isRecord(value.metrics)) {
-    return false;
-  }
+  const dashboard = value.dashboard;
 
   return (
     Array.isArray(value.contents) &&
     Array.isArray(value.classifications) &&
-    Array.isArray(value.guideImpressions) &&
-    Array.isArray(value.activities) &&
-    Array.isArray(value.projectDriveItems)
+    Array.isArray(value.dismissedGuides) &&
+    Array.isArray(value.sessionDismissedGuides) &&
+    Array.isArray(value.dismissedFeatures) &&
+    Array.isArray(value.sessionDismissedFeatures) &&
+    isRecord(dashboard.metrics) &&
+    Array.isArray(dashboard.completedWorks) &&
+    Array.isArray(dashboard.projectDriveItems)
   );
 }
 
-export function loadAppState(): PersistedAppState | null {
+export function loadState(): PersistedState | null {
   try {
     const rawState = window.localStorage.getItem(STORAGE_KEY);
 
@@ -63,7 +63,7 @@ export function loadAppState(): PersistedAppState | null {
 
     const parsedState: unknown = JSON.parse(rawState);
 
-    if (!isValidPersistedAppState(parsedState)) {
+    if (!isValidState(parsedState)) {
       return null;
     }
 
@@ -73,18 +73,18 @@ export function loadAppState(): PersistedAppState | null {
   }
 }
 
-export function saveAppState(state: PersistedAppState) {
+export function saveState(state: PersistedState) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    // Persistence is best-effort for the demo.
+    // Persistence is best-effort for the MVP demo.
   }
 }
 
-export function clearAppState() {
+export function clearState() {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Ignore localStorage failures so reset never crashes the app.
+    // Reset should never crash the app.
   }
 }

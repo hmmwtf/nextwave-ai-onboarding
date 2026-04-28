@@ -20,10 +20,10 @@ import type {
 } from '../domain/types';
 import { classifyContent } from '../services/classifiers/classifyContent';
 import {
-  clearAppState,
-  loadAppState,
-  saveAppState,
-  type PersistedAppState,
+  clearState,
+  loadState,
+  saveState,
+  type PersistedState,
 } from '../services/storage';
 
 const initialUsedFeatures: FeatureFlags = {
@@ -45,64 +45,72 @@ function clampPercent(value: number) {
   return Math.min(value, 100);
 }
 
-function createInitialAppState(): PersistedAppState {
+function createInitialPersistedState(): PersistedState {
   return {
-    user: {
-      userType: null,
-    },
     contents: [],
     classifications: [],
-    activeClassification: null,
-    activeRecommendation: null,
-    guideImpressions: [],
     usedFeatures: initialUsedFeatures,
-    metrics: initialMetrics,
-    activities: [],
-    projectDriveItems: [],
+    dismissedGuides: [],
+    sessionDismissedGuides: [],
+    dismissedFeatures: [],
+    sessionDismissedFeatures: [],
+    dashboard: {
+      metrics: initialMetrics,
+      completedWorks: [],
+      projectDriveItems: [],
+    },
   };
 }
 
-function getInitialAppState() {
-  return loadAppState() ?? createInitialAppState();
+function getInitialPersistedState() {
+  return loadState() ?? createInitialPersistedState();
 }
 
 export function DashboardScreen() {
-  const [initialAppState] = useState<PersistedAppState>(getInitialAppState);
+  const [initialPersistedState] = useState<PersistedState>(
+    getInitialPersistedState,
+  );
   const shouldSkipNextSave = useRef(false);
-  const [contents, setContents] = useState<Content[]>(initialAppState.contents);
+  const [contents, setContents] = useState<Content[]>(
+    initialPersistedState.contents,
+  );
   const [activities, setActivities] = useState<CompletedActivity[]>(
-    initialAppState.activities,
+    initialPersistedState.dashboard.completedWorks,
   );
   const [projectDriveItems, setProjectDriveItems] = useState<ProjectDriveItem[]>(
-    initialAppState.projectDriveItems,
+    initialPersistedState.dashboard.projectDriveItems,
   );
   const [metrics, setMetrics] = useState<DashboardMetrics>(
-    initialAppState.metrics,
+    initialPersistedState.dashboard.metrics,
   );
   const [classifications, setClassifications] = useState<Classification[]>(
-    initialAppState.classifications,
+    initialPersistedState.classifications,
   );
   const [activeClassification, setActiveClassification] =
-    useState<Classification | null>(initialAppState.activeClassification);
+    useState<Classification | null>(null);
   const [activeRecommendation, setActiveRecommendation] =
-    useState<Recommendation | null>(initialAppState.activeRecommendation);
+    useState<Recommendation | null>(null);
   const [usedFeatures, setUsedFeatures] =
-    useState<FeatureFlags>(initialAppState.usedFeatures);
-  const [dismissedGuides, setDismissedGuides] = useState<string[]>([]);
-  const [dismissedFeatures, setDismissedFeatures] = useState<FeatureKey[]>([]);
+    useState<FeatureFlags>(initialPersistedState.usedFeatures);
+  const [dismissedGuides, setDismissedGuides] = useState<string[]>(
+    initialPersistedState.dismissedGuides,
+  );
+  const [dismissedFeatures, setDismissedFeatures] = useState<FeatureKey[]>(
+    initialPersistedState.dismissedFeatures,
+  );
   const [sessionDismissedGuides, setSessionDismissedGuides] = useState<string[]>(
-    [],
+    initialPersistedState.sessionDismissedGuides,
   );
   const [sessionDismissedFeatures, setSessionDismissedFeatures] = useState<
     FeatureKey[]
-  >([]);
+  >(initialPersistedState.sessionDismissedFeatures);
   const [guideImpressions, setGuideImpressions] = useState<GuideImpression[]>(
-    initialAppState.guideImpressions,
+    [],
   );
   const [acceptedMessage, setAcceptedMessage] = useState('');
-  const [user, setUser] = useState<{ userType: UserType | null }>(
-    initialAppState.user,
-  );
+  const [user, setUser] = useState<{ userType: UserType | null }>({
+    userType: null,
+  });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -112,50 +120,52 @@ export function DashboardScreen() {
       return;
     }
 
-    saveAppState({
-      user,
+    saveState({
       contents,
       classifications,
-      activeClassification,
-      activeRecommendation,
-      guideImpressions,
       usedFeatures,
-      metrics,
-      activities,
-      projectDriveItems,
+      dismissedGuides,
+      sessionDismissedGuides,
+      dismissedFeatures,
+      sessionDismissedFeatures,
+      dashboard: {
+        metrics,
+        completedWorks: activities,
+        projectDriveItems,
+      },
     });
   }, [
-    user,
     contents,
     classifications,
-    activeClassification,
-    activeRecommendation,
-    guideImpressions,
     usedFeatures,
+    dismissedGuides,
+    sessionDismissedGuides,
+    dismissedFeatures,
+    sessionDismissedFeatures,
     metrics,
     activities,
     projectDriveItems,
   ]);
 
   const handleResetDemo = () => {
-    const nextState = createInitialAppState();
+    const nextState = createInitialPersistedState();
 
     shouldSkipNextSave.current = true;
-    clearAppState();
-    setUser(nextState.user);
+    clearState();
+    setUser({ userType: null });
     setContents(nextState.contents);
     setClassifications(nextState.classifications);
-    setActiveClassification(nextState.activeClassification);
-    setActiveRecommendation(nextState.activeRecommendation);
-    setGuideImpressions(nextState.guideImpressions);
+    setActiveClassification(null);
+    setActiveRecommendation(null);
+    setGuideImpressions([]);
     setUsedFeatures(nextState.usedFeatures);
-    setMetrics(nextState.metrics);
-    setActivities(nextState.activities);
-    setProjectDriveItems(nextState.projectDriveItems);
-    setDismissedGuides([]);
-    setDismissedFeatures([]);
-    setSessionDismissedGuides([]);
-    setSessionDismissedFeatures([]);
+    setMetrics(nextState.dashboard.metrics);
+    setActivities(nextState.dashboard.completedWorks);
+    setProjectDriveItems(nextState.dashboard.projectDriveItems);
+    setDismissedGuides(nextState.dismissedGuides);
+    setDismissedFeatures(nextState.dismissedFeatures);
+    setSessionDismissedGuides(nextState.sessionDismissedGuides);
+    setSessionDismissedFeatures(nextState.sessionDismissedFeatures);
     setAcceptedMessage('');
     setIsAnalyzing(false);
     setIsCreateModalOpen(false);
