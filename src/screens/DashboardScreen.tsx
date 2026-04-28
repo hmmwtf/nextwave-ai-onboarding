@@ -8,8 +8,12 @@ import { resolveUserType } from '../domain/classification/resolveUserType';
 import { selectRecommendation } from '../domain/recommendation/selectRecommendation';
 import type {
   Classification,
+  CompletedActivity,
   Content,
+  DashboardMetrics,
   FeatureFlags,
+  GuideImpression,
+  ProjectDriveItem,
   Recommendation,
   UserType,
 } from '../domain/types';
@@ -21,16 +25,35 @@ const initialUsedFeatures: FeatureFlags = {
   note_share: 0,
 };
 
+const initialMetrics: DashboardMetrics = {
+  sourceLabel: 'demo_mock',
+  totalFocusMinutes: 2325,
+  completionRate: 75,
+  notificationAdoptionRate: 10,
+  deliveryRate: 92,
+  teamFeatureUsageRate: 60,
+};
+
+function clampPercent(value: number) {
+  return Math.min(value, 100);
+}
+
 export function DashboardScreen() {
   const [contents, setContents] = useState<Content[]>([]);
+  const [activities, setActivities] = useState<CompletedActivity[]>([]);
+  const [projectDriveItems, setProjectDriveItems] = useState<ProjectDriveItem[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [activeClassification, setActiveClassification] =
     useState<Classification | null>(null);
   const [activeRecommendation, setActiveRecommendation] =
     useState<Recommendation | null>(null);
-  const [usedFeatures] = useState<FeatureFlags>(initialUsedFeatures);
+  const [usedFeatures, setUsedFeatures] =
+    useState<FeatureFlags>(initialUsedFeatures);
   const [dismissedGuides] = useState<string[]>([]);
   const [sessionDismissedGuides] = useState<string[]>([]);
+  const [, setGuideImpressions] = useState<GuideImpression[]>([]);
+  const [acceptedMessage, setAcceptedMessage] = useState('');
   const [user, setUser] = useState<{ userType: UserType | null }>({
     userType: null,
   });
@@ -41,6 +64,7 @@ export function DashboardScreen() {
     setContents((currentContents) => [content, ...currentContents]);
     setIsCreateModalOpen(false);
     setIsAnalyzing(true);
+    setAcceptedMessage('');
 
     const result = await classifyContent({
       title: content.title,
@@ -81,6 +105,91 @@ export function DashboardScreen() {
     setIsAnalyzing(false);
   };
 
+  const handleAcceptRecommendation = (recommendation: Recommendation) => {
+    const now = Date.now();
+
+    setGuideImpressions((currentImpressions) => [
+      {
+        guideId: recommendation.guideId,
+        outcome: 'accepted',
+        createdAt: now,
+      },
+      ...currentImpressions,
+    ]);
+
+    setUsedFeatures((currentUsedFeatures) => ({
+      ...currentUsedFeatures,
+      [recommendation.featureKey]:
+        currentUsedFeatures[recommendation.featureKey] + 1,
+    }));
+
+    if (recommendation.featureKey === 'team_invite') {
+      setActivities((currentActivities) => [
+        {
+          id: `activity_${now}`,
+          label: '[팀 초대 완료]',
+          kind: 'team_invite',
+          createdAt: now,
+        },
+        ...currentActivities,
+      ]);
+      setMetrics((currentMetrics) => ({
+        ...currentMetrics,
+        teamFeatureUsageRate: clampPercent(
+          currentMetrics.teamFeatureUsageRate + 15,
+        ),
+        deliveryRate: clampPercent(currentMetrics.deliveryRate + 5),
+      }));
+    }
+
+    if (recommendation.featureKey === 'notification_rule') {
+      setActivities((currentActivities) => [
+        {
+          id: `activity_${now}`,
+          label: '[알림 규칙 생성]',
+          kind: 'notification_rule',
+          createdAt: now,
+        },
+        ...currentActivities,
+      ]);
+      setMetrics((currentMetrics) => ({
+        ...currentMetrics,
+        notificationAdoptionRate: clampPercent(
+          currentMetrics.notificationAdoptionRate + 10,
+        ),
+        completionRate: clampPercent(currentMetrics.completionRate + 5),
+      }));
+    }
+
+    if (recommendation.featureKey === 'note_share') {
+      setActivities((currentActivities) => [
+        {
+          id: `activity_${now}`,
+          label: '[메모 공유 완료]',
+          kind: 'note_share',
+          createdAt: now,
+        },
+        ...currentActivities,
+      ]);
+      setProjectDriveItems((currentItems) => [
+        {
+          id: `drive_${now}`,
+          name: '공유 링크 생성',
+          kind: 'shared_link',
+          createdAt: now,
+        },
+        ...currentItems,
+      ]);
+      setMetrics((currentMetrics) => ({
+        ...currentMetrics,
+        deliveryRate: clampPercent(currentMetrics.deliveryRate + 8),
+      }));
+    }
+
+    setActiveRecommendation(null);
+    setAcceptedMessage(`${recommendation.cta} 완료`);
+  };
+
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
@@ -105,13 +214,15 @@ export function DashboardScreen() {
 
       <section className="dashboard-grid" aria-label="MVP dashboard sections">
         <RecommendationCard
+          acceptedMessage={acceptedMessage}
           classification={activeClassification}
+          onAcceptRecommendation={handleAcceptRecommendation}
           recommendation={activeRecommendation}
           userType={user.userType}
         />
-        <StatsPanel />
-        <ContentList contents={contents} />
-        <ProjectDriveMock />
+        <StatsPanel metrics={metrics} />
+        <ContentList contents={contents} activities={activities} />
+        <ProjectDriveMock items={projectDriveItems} />
       </section>
 
       {isCreateModalOpen ? (

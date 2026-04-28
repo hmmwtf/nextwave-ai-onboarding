@@ -169,6 +169,13 @@ textarea {
   color: #546179;
 }
 
+.mock-note {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .analysis-result dl {
   display: grid;
   gap: 12px;
@@ -221,6 +228,15 @@ textarea {
 .recommendation-reason {
   color: #255586;
   font-weight: 700;
+}
+
+.accepted-panel {
+  padding: 16px;
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  color: #1b6b3a;
+  background: #ecfdf3;
+  font-weight: 800;
 }
 
 .modal-backdrop {

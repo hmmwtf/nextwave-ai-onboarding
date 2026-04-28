@@ -1,18 +1,27 @@
 import type { Classification, Recommendation, UserType } from '../../domain/types';
 
 interface RecommendationCardProps {
+  acceptedMessage: string;
   classification: Classification | null;
+  onAcceptRecommendation: (recommendation: Recommendation) => void;
   recommendation: Recommendation | null;
   userType: UserType | null;
 }
 
 export function RecommendationCard({
+  acceptedMessage,
   classification,
+  onAcceptRecommendation,
   recommendation,
   userType,
 }: RecommendationCardProps) {
   const handleCtaClick = () => {
+    if (!recommendation) {
+      return;
+    }
+
     console.log('CTA clicked', recommendation);
+    onAcceptRecommendation(recommendation);
   };
 
   return (
@@ -25,7 +34,11 @@ export function RecommendationCard({
         <span className="status-pill">AI guide</span>
       </div>
 
-      {classification && recommendation ? (
+      {acceptedMessage ? (
+        <div className="accepted-panel" role="status">
+          {acceptedMessage}
+        </div>
+      ) : classification && recommendation ? (
         <div className="recommendation-layout">
           <div className="analysis-result">
             <dl>

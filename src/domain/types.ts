@@ -32,6 +32,35 @@ export interface Recommendation {
   reason: string;
 }
 
+export interface DashboardMetrics {
+  sourceLabel: 'demo_mock';
+  totalFocusMinutes: number;
+  completionRate: number;
+  notificationAdoptionRate: number;
+  deliveryRate: number;
+  teamFeatureUsageRate: number;
+}
+
+export interface CompletedActivity {
+  id: string;
+  label: string;
+  kind: 'content_created' | 'team_invite' | 'notification_rule' | 'note_share';
+  createdAt: number;
+}
+
+export interface ProjectDriveItem {
+  id: string;
+  name: string;
+  kind: 'file' | 'folder' | 'shared_link';
+  createdAt: number;
+}
+
+export interface GuideImpression {
+  guideId: string;
+  outcome: 'accepted';
+  createdAt: number;
+}
+
 export interface Content {
   id: string;
   type: ContentType;
