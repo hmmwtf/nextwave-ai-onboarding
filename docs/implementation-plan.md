@@ -146,7 +146,9 @@ export interface UserState {
   userType: UserType | null;
   classifications: Classification[];
   dismissedGuides: string[];
+  dismissedFeatures: FeatureKey[];
   sessionDismissedGuides: string[];
+  sessionDismissedFeatures: FeatureKey[];
   usedFeatures: FeatureFlags;
 }
 
@@ -290,10 +292,12 @@ GUIDE_ACCEPTED
 
 GUIDE_DISMISSED
   -> sessionDismissedGuides 추가
+  -> sessionDismissedFeatures 추가
   -> activeRecommendation 제거
 
 GUIDE_NEVER_SHOW
   -> dismissedGuides 추가
+  -> dismissedFeatures 추가
   -> activeRecommendation 제거
 ```
 
@@ -453,7 +457,7 @@ function resolveUserType(params: {
 
 ## 5. 추천 로직
 
-추천 로직은 `selectRecommendation(userType, usedFeatures, dismissedGuides)`에서 결정한다.
+추천 로직은 `selectRecommendation(userType, usedFeatures, dismissedGuides, dismissedFeatures)`에서 결정한다.
 
 ### 5.1 추천 카탈로그
 
@@ -532,7 +536,9 @@ function selectRecommendation(params: {
   userType: UserType;
   usedFeatures: FeatureFlags;
   dismissedGuides: string[];
+  dismissedFeatures: FeatureKey[];
   sessionDismissedGuides: string[];
+  sessionDismissedFeatures: FeatureKey[];
 }): Recommendation | null {
   const primary = guideCatalog[params.userType][0];
 
@@ -540,25 +546,42 @@ function selectRecommendation(params: {
     return primary;
   }
 
-  const nextFeature = globalFeaturePriority.find(
-    (featureKey) => params.usedFeatures[featureKey] === 0
-  );
+  for (const featureKey of globalFeaturePriority) {
+    const candidate = findGuideByFeature(params.userType, featureKey);
 
-  if (!nextFeature) {
-    return null;
+    if (candidate && canShowGuide(candidate, params)) {
+      return candidate;
+    }
   }
 
-  return findGuideByFeature(params.userType, nextFeature);
+  return null;
+}
+
+function canShowGuide(guide: Recommendation, params: SelectRecommendationParams) {
+  return (
+    params.usedFeatures[guide.featureKey] === 0 &&
+    !params.dismissedGuides.includes(guide.guideId) &&
+    !params.sessionDismissedGuides.includes(guide.guideId) &&
+    !params.dismissedFeatures.includes(guide.featureKey) &&
+    !params.sessionDismissedFeatures.includes(guide.featureKey)
+  );
 }
 ```
 
 ### 5.3 노출 제어
 
 - 한 화면에는 추천 카드 1개만 표시한다.
-- `나중에`를 누르면 해당 세션에서 다시 보이지 않는다.
-- `다시 보지 않기`를 누르면 localStorage의 `dismissedGuides`에 저장한다.
-- CTA를 수락하면 `usedFeatures[featureKey] += 1`을 적용하고 대시보드에 즉시 반영한다.
+- `나중에`를 누르면 현재 guide와 feature를 `sessionDismissedGuides`, `sessionDismissedFeatures`에 추가하여 해당 세션에서 다시 보이지 않게 한다.
+- `다시 보지 않기`를 누르면 현재 guide와 feature를 localStorage의 `dismissedGuides`, `dismissedFeatures`에 저장하여 영구적으로 다시 보이지 않게 한다.
+- dismiss 동작은 `usedFeatures`를 증가시키지 않는다.
+- CTA를 수락할 때만 `usedFeatures[featureKey] += 1`을 적용하고 대시보드에 즉시 반영한다.
 - 이미 사용한 기능의 추천은 다음 미사용 기능 추천으로 대체한다.
+
+#### 회귀 체크리스트
+
+- `team_invite`를 `나중에` 처리하면 `fallback_team_invite`가 다시 나오지 않아야 한다.
+- `team_invite`를 dismiss한 뒤 `notification_rule`이 사용 가능하면 다음 추천은 `notification_rule`로 이동해야 한다.
+- 모든 후보가 이미 사용됐거나 dismiss된 경우 `selectRecommendation`은 `null`을 반환해야 한다.
 
 ### 5.4 CTA 처리
 
